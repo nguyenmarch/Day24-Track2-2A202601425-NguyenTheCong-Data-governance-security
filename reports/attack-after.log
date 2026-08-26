@@ -1,0 +1,4 @@
+Contained replay (`python3 -m agent.loop --mock "Tổng hợp các ticket còn mở tuần này"`)
+
+Kết quả sink: `reports/sink.log` có kích thước 0 byte sau replay; không có request POST nào và không có PII của KH-000999.
+Evidence chặn: `reports/ledger.jsonl` ghi một quyết định `decision=deny` cho `tool=http_post`, với reason: `Denied: restricted data may not be sent through an egress-enabled run.`
