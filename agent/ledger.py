@@ -33,12 +33,49 @@ rồi gọi verify() phải trả về False.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 
+_GENESIS_HASH = "0" * 64
+
+
+def _digest(entry: dict) -> str:
+    body = {key: value for key, value in entry.items() if key != "hash"}
+    encoded = json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 def append(entry: dict, path: Path) -> dict:
-    raise NotImplementedError("BƯỚC 3d: implement ledger append")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    previous = _GENESIS_HASH
+    if path.exists() and path.stat().st_size:
+        try:
+            previous = json.loads(path.read_text(encoding="utf-8").splitlines()[-1]).get("hash", "")
+        except (json.JSONDecodeError, IndexError):
+            previous = ""
+    recorded = dict(entry)
+    recorded["prev_hash"] = previous
+    recorded["hash"] = _digest(recorded)
+    with path.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(recorded, ensure_ascii=False, sort_keys=True) + "\n")
+    return recorded
 
 
 def verify(path: Path) -> bool:
-    raise NotImplementedError("BƯỚC 3d: implement ledger verify")
+    if not path.exists():
+        return True
+    previous = _GENESIS_HASH
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for line in lines:
+            entry = json.loads(line)
+            if not entry.get("reason") or entry.get("prev_hash") != previous:
+                return False
+            if entry.get("hash") != _digest(entry):
+                return False
+            previous = entry["hash"]
+    except (json.JSONDecodeError, OSError, TypeError):
+        return False
+    return True
